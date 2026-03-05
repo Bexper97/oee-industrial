@@ -1,39 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Users, Box, BarChart3, ChevronLeft } from 'lucide-react';
+import { Plus, Users, Box, BarChart3, ChevronLeft, Lock, Eye, EyeOff } from 'lucide-react';
 
 interface AdminPanelProps {
     onBack: () => void;
 }
 
+const ADMIN_PIN = '1234'; // Altere para a senha que quiser
+
 const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [pin, setPin] = useState('');
+    const [pinError, setPinError] = useState(false);
+    const [showPin, setShowPin] = useState(false);
+
     const [activeTab, setActiveTab] = useState<'operadores' | 'maquinas' | 'relatorios'>('relatorios');
     const [items, setItems] = useState<any[]>([]);
     const [newItemName, setNewItemName] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const handlePinSubmit = () => {
+        if (pin === ADMIN_PIN) {
+            setIsAuthenticated(true);
+            setPinError(false);
+        } else {
+            setPinError(true);
+            setPin('');
+        }
+    };
+
     useEffect(() => {
-        fetchItems();
-    }, [activeTab]);
+        if (isAuthenticated) fetchItems();
+    }, [activeTab, isAuthenticated]);
 
     const fetchItems = async () => {
-        setLoading(true);
         const table = activeTab === 'operadores' ? 'operadores' : activeTab === 'maquinas' ? 'maquinas' : null;
-        if (!table) {
-            setLoading(false);
-            return;
+        if (!table) return;
+
+        setLoading(true);
+
+        // 1. Carrega cache offline imediatamente
+        const cacheKey = `oee_cache_${table}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) setItems(JSON.parse(cached));
+
+        // 2. Se online, atualiza do Supabase
+        if (navigator.onLine) {
+            try {
+                const { data } = await supabase.from(table).select('*').order('nome');
+                if (data) {
+                    setItems(data);
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                }
+            } catch (err) {
+                console.error('Erro ao buscar dados, usando cache:', err);
+            }
         }
 
-        const { data } = await supabase.from(table).select('*').order('nome');
-        if (data) setItems(data);
         setLoading(false);
     };
 
     const handleAddItem = async () => {
-        if (!newItemName) return;
+        if (!newItemName.trim() || !navigator.onLine) {
+            if (!navigator.onLine) alert('Sem conexão. Adicione itens quando estiver com internet.');
+            return;
+        }
         const table = activeTab === 'operadores' ? 'operadores' : 'maquinas';
-
-        const { error } = await supabase.from(table).insert([{ nome: newItemName }]);
+        const { error } = await supabase.from(table).insert([{ nome: newItemName.trim() }]);
         if (!error) {
             setNewItemName('');
             fetchItems();
@@ -41,12 +74,64 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     };
 
     const handleToggleActive = async (id: string, currentStatus: boolean) => {
+        if (!navigator.onLine) { alert('Sem conexão. Edite quando estiver com internet.'); return; }
         const table = activeTab === 'operadores' ? 'operadores' : 'maquinas';
         const field = activeTab === 'operadores' ? 'ativo' : 'ativa';
-
         await supabase.from(table).update({ [field]: !currentStatus }).eq('id', id);
         fetchItems();
     };
+
+    // Tela de autenticação
+    if (!isAuthenticated) {
+        return (
+            <div className="flex flex-col items-center justify-center flex-1 gap-6 animate-in fade-in duration-300">
+                <div className="w-20 h-20 rounded-full bg-brand-green/10 flex items-center justify-center border border-brand-green/20">
+                    <Lock size={36} className="text-brand-green" />
+                </div>
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-white">Acesso Restrito</h2>
+                    <p className="text-gray-500 text-sm mt-1">Digite a senha do administrador</p>
+                </div>
+
+                <div className="w-full max-w-xs flex flex-col gap-4">
+                    <div className="relative">
+                        <input
+                            type={showPin ? 'text' : 'password'}
+                            placeholder="Senha do Admin"
+                            value={pin}
+                            onChange={(e) => { setPin(e.target.value); setPinError(false); }}
+                            onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+                            className={`w-full bg-brand-dark/50 text-white text-center text-2xl tracking-widest p-4 rounded-xl border outline-none transition-all ${pinError ? 'border-red-500 animate-pulse' : 'border-white/10 focus:border-brand-green'}`}
+                            autoFocus
+                        />
+                        <button
+                            onClick={() => setShowPin(!showPin)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                        >
+                            {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
+
+                    {pinError && (
+                        <p className="text-red-400 text-center text-sm font-bold">Senha incorreta. Tente novamente.</p>
+                    )}
+
+                    <button
+                        onClick={handlePinSubmit}
+                        className="w-full bg-brand-green text-white font-bold py-4 rounded-xl text-lg hover:brightness-110 transition-all"
+                    >
+                        Entrar
+                    </button>
+                    <button
+                        onClick={onBack}
+                        className="text-gray-500 text-sm text-center"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
@@ -88,24 +173,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 </div>
             ) : (
                 <div className="flex flex-col gap-4">
+                    {!navigator.onLine && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-yellow-400 text-xs font-bold text-center uppercase tracking-wide">
+                            ⚠️ Modo Offline — Apenas leitura disponível
+                        </div>
+                    )}
+
                     <div className="flex gap-2">
                         <input
                             type="text"
                             placeholder={`Novo ${activeTab === 'operadores' ? 'operador' : 'máquina'}...`}
                             value={newItemName}
                             onChange={(e) => setNewItemName(e.target.value)}
-                            className="flex-1 bg-brand-dark/50 text-white p-3 rounded-lg border border-white/10 outline-none"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                            className="flex-1 bg-brand-dark/50 text-white p-3 rounded-lg border border-white/10 outline-none focus:border-brand-green"
                         />
                         <button
                             onClick={handleAddItem}
-                            className="bg-brand-green text-white p-3 rounded-lg"
+                            disabled={!navigator.onLine}
+                            className={`p-3 rounded-lg transition-all ${navigator.onLine ? 'bg-brand-green text-white' : 'bg-gray-700 text-gray-500'}`}
                         >
                             <Plus size={20} />
                         </button>
                     </div>
 
                     <div className="space-y-2">
-                        {loading ? (
+                        {loading && !items.length ? (
                             <p className="text-gray-500 text-center py-4 italic">Carregando...</p>
                         ) : items.map(item => (
                             <div key={item.id} className="bg-glass p-3 rounded-xl border border-white/5 flex justify-between items-center">
@@ -114,7 +207,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                 </span>
                                 <button
                                     onClick={() => handleToggleActive(item.id, item.ativo ?? item.ativa)}
-                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase ${item.ativo === false || item.ativa === false ? 'bg-gray-700 text-gray-400' : 'bg-brand-green/20 text-brand-green'}`}
+                                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase ${item.ativo === false || item.ativa === false ? 'bg-gray-700 text-gray-400' : 'bg-brand-green/20 text-brand-green border border-brand-green/30'}`}
                                 >
                                     {item.ativo === false || item.ativa === false ? 'Inativo' : 'Ativo'}
                                 </button>
