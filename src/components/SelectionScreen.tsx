@@ -18,17 +18,32 @@ const SelectionScreen: React.FC<SelectionScreenProps> = ({ onSelectionComplete }
 
     useEffect(() => {
         async function fetchData() {
-            try {
-                const { data: ops } = await supabase.from('operadores').select('*').eq('ativo', true).order('nome');
-                const { data: macs } = await supabase.from('maquinas').select('*').eq('ativa', true).order('nome');
+            // 1. Carrega do cache local imediatamente (offline-first)
+            const cachedOps = localStorage.getItem('oee_cache_operadores');
+            const cachedMacs = localStorage.getItem('oee_cache_maquinas');
+            if (cachedOps) setOperadores(JSON.parse(cachedOps));
+            if (cachedMacs) setMaquinas(JSON.parse(cachedMacs));
 
-                if (ops) setOperadores(ops);
-                if (macs) setMaquinas(macs);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setLoading(false);
+            // 2. Se estiver online, atualiza do Supabase e salva o cache
+            if (navigator.onLine) {
+                try {
+                    const { data: ops } = await supabase.from('operadores').select('*').eq('ativo', true).order('nome');
+                    const { data: macs } = await supabase.from('maquinas').select('*').eq('ativa', true).order('nome');
+
+                    if (ops) {
+                        setOperadores(ops);
+                        localStorage.setItem('oee_cache_operadores', JSON.stringify(ops));
+                    }
+                    if (macs) {
+                        setMaquinas(macs);
+                        localStorage.setItem('oee_cache_maquinas', JSON.stringify(macs));
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar dados online, usando cache:', error);
+                }
             }
+
+            setLoading(false);
         }
         fetchData();
     }, []);
