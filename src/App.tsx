@@ -35,7 +35,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col items-center">
+    <div className="h-dvh bg-brand-dark flex flex-col overflow-hidden">
       {/* Header Fixo */}
       <header className="w-full p-4 flex justify-between items-center bg-brand-dark/80 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
         <div className="flex items-center gap-4">
@@ -67,7 +67,7 @@ function App() {
         </div>
       </header>
 
-      <main className="w-full max-w-lg flex-1 flex flex-col p-4 mx-auto">
+      <main className="w-full max-w-lg flex-1 flex flex-col p-4 mx-auto overflow-y-auto pb-8">
         {isAdminMode ? (
           <AdminPanel onBack={() => setIsAdminMode(false)} />
         ) : !session ? (
