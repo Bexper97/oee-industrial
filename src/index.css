@@ -5,7 +5,7 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
+  color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #0f172a;
 
@@ -41,4 +41,21 @@ body {
 .btn-status-idle {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+/* Fix para selects em tema escuro */
+select {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+select option {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
+select option:hover,
+select option:checked {
+  background-color: #22c55e;
+  color: #ffffff;
 }
