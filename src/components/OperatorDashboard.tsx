@@ -171,7 +171,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ session }) => {
                                     <button
                                         key={t}
                                         onClick={() => setTipoParada(t)}
-                                        className={`p-3 rounded-lg border text-sm transition-all ${tipoParada === t ? 'bg-white text-brand-dark border-white font-bold' : 'bg-white/5 text-gray-400 border-white/10'}`}
+                                        className={`p-3 rounded-lg border text-sm font-bold transition-all ${tipoParada === t ? 'bg-brand-green text-white border-brand-green shadow-lg shadow-brand-green/20' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/30'}`}
                                     >
                                         {t}
                                     </button>
